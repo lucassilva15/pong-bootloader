@@ -17,6 +17,8 @@ int ball_y;
 int white;
 int black;
 int central_bar[5];
+int player1_goals = 0;
+int player2_goals = 0;
 
 // Variables to tests
 int i = 0;
@@ -208,23 +210,42 @@ void write_serial(int port, char a) {
    outb(port, a);
 }
 
-void isr0() {
-    i++;
-    if (i == 30) {
-        i = 0;
-        write_serial(0x3f8, 'a');
-        draw_all_counter_black();
-        draw_counter(j, k, white);
-
-        j++;
-        if (j == 10) {
-            j = 0;
-            k++;
-            if (k == 10) {
-                k = 0;
-            }
+void verifyIfGoal() {
+    if (ball_x <= 0) {
+        player2_goals++;
+        if (player2_goals > 9) {
+            player2_goals = 0;
+            player1_goals = 0;
         }
+        draw_all_counter_black();
+        draw_counter(player1_goals, player2_goals, white);
+
+        draw_ball(ball_x, ball_y, black);
+        ball_x = 350;
+        ball_y = 300;
+        draw_ball(ball_x, ball_y, white);
+        draw_player(player1_x, player1_y, white);
     }
+
+    if ((ball_x + 10) >= max_screen_width) {
+        player1_goals++;
+        if (player1_goals > 9) {
+            player1_goals = 0;
+            player2_goals = 0;
+        }
+        draw_all_counter_black();
+        draw_counter(player1_goals, player2_goals, white);
+
+        draw_ball(ball_x, ball_y, black);
+        ball_x = 450;
+        ball_y = 300;
+        draw_ball(ball_x, ball_y, white);
+        draw_player(player1_x, player1_y, white);
+    }
+}
+
+void isr0() {
+    verifyIfGoal();
 }
 
 void isr1() {
@@ -247,13 +268,13 @@ void isr1() {
     }
 
     // Ball up, down, left and right
-    if (key_code == 35 && (ball_y + 10) < max_screen_height) {
+    if (key_code == 35) {
         move_ball_vertical(20);
     }
     if (key_code == 21 && ball_y >= 1) {
         move_ball_vertical(-20);
     }
-    if (key_code == 36 && (ball_x + 10) < max_screen_width) {
+    if (key_code == 36) {
         move_ball_horizontal(20);
     }
     if (key_code == 34 && ball_x >= 1) {
@@ -280,8 +301,8 @@ int main(unsigned long addr)
     player2_y = y_screen_center_lateral_bars;
 
     // Ball properties
-    ball_x = 50;
-    ball_y = 500;
+    ball_x = 450;
+    ball_y = 300;
 
     // Colors properties
     white = 0xD3D3D3;
@@ -307,7 +328,7 @@ int main(unsigned long addr)
     draw_player(x_right_bar, y_screen_center_lateral_bars, white);
 
     draw_component(central_bar);
-    draw_counter(1, 0, white);
+    draw_counter(0, 0, white);
 
     // Initialize serial ports
     init_serial(0x3f8);
