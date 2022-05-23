@@ -1,4 +1,4 @@
-PROJECT = project
+PROJECT = keyboard-isr
 
 SOURCES += src/main.c
 
@@ -51,10 +51,12 @@ $(PROJECT).elf: $(ASOBJECTS) $(OBJECTS)
 clean:
 	$(DEL) -f **/*.elf *.o **/*.o **/**/*.o iso/boot/*.elf *.img *.iso *.elf
 
-run: $(PROJECT).iso
-# 	$(QEMU) -soundhw pcspk -monitor stdio -hda $<
-	$(QEMU) -soundhw pcspk -serial mon:stdio -hda $<
+run1: $(PROJECT).iso
+	$(QEMU) -soundhw pcspk -serial mon:stdio -serial telnet:localhost:10001 -hda $<
 
+run2: $(PROJECT).iso
+	cp $< $<-2
+	$(QEMU) -soundhw pcspk -serial mon:stdio -serial telnet:localhost:10002 -hda $<-2
 
 debug: kernel.elf
 	$(QEMU) -soundhw pcspk -serial mon:stdio -s -S -kernel $< &

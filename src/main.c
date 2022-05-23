@@ -19,6 +19,10 @@ int black;
 int central_bar[5];
 int player1_goals = 0;
 int player2_goals = 0;
+int serial_port = 0x2F8;
+int serial_port_debug = 0x3F8;
+int is_connected = 0;
+int is_server = 0;
 
 // Variables to tests
 int i = 0;
@@ -106,7 +110,7 @@ int draw_counter(int player1, int player2, int color) {
             {230, 90, 10, 40, color},
             {150, 120, 80, 10, color},
         },
-        { 
+        {
             {150, 50, 10, 50, color},
             {230, 50, 10, 50, color},
             {150, 90, 80, 10, color},
@@ -249,22 +253,32 @@ void isr0() {
 }
 
 void isr1() {
+    if(is_connected == 0){
+      return ;
+    }
+
     char key_code = inb(0x60);
 
-    // Player 1 up and down
-    if (key_code == 31 && (player1_y + lateral_bar_height) <= max_screen_height) {
-        move_player1(20);
-    }
-    if (key_code == 17 && player1_y >= 1) {
-        move_player1(-20);
+    write_serial(serial_port, key_code);
+
+      // Player 1 up and down
+    if(is_server == 1){
+      if (key_code == 31 && (player1_y + lateral_bar_height) <= max_screen_height) {
+          move_player1(20);
+      }
+      if (key_code == 17 && player1_y >= 1) {
+          move_player1(-20);
+      }
     }
 
     // Player 2 up and down
-    if (key_code == 80 && (player2_y + lateral_bar_height) <= max_screen_height) {
-        move_player2(20);
-    }
-    if (key_code == 72 && player2_y >= 1) {
-        move_player2(-20);
+    if(is_server == 0){
+      if (key_code == 31 && (player2_y + lateral_bar_height) <= max_screen_height) {
+          move_player2(20);
+      }
+      if (key_code == 17 && player2_y >= 1) {
+          move_player2(-20);
+      }
     }
 
     // Ball up, down, left and right
@@ -279,6 +293,40 @@ void isr1() {
     }
     if (key_code == 34 && ball_x >= 1) {
         move_ball_horizontal(-20);
+    }
+}
+
+void isr4() {
+  if(is_connected == 0){
+    return;
+  }
+
+  char msg = serial_received(serial_port);
+
+   if(msg == 0){
+    return;
+   }
+
+   char key_code = inb(serial_port);
+
+    // Player 1 up and down
+    if(is_server == 1){
+      if (key_code == 31 && (player1_y + lateral_bar_height) <= max_screen_height) {
+          move_player1(20);
+      }
+      if (key_code == 17 && player1_y >= 1) {
+          move_player1(-20);
+      }
+    }
+
+    // Player 2 up and down
+    if(is_server == 0){
+      if (key_code == 31 && (player2_y + lateral_bar_height) <= max_screen_height) {
+          move_player2(20);
+      }
+      if (key_code == 17 && player2_y >= 1) {
+          move_player2(-20);
+      }
     }
 }
 
@@ -316,8 +364,8 @@ int main(unsigned long addr)
     central_bar[4] = 0xD3D3D3;
 
     screen_init(
-        mbi->framebuffer_addr, 
-        mbi->framebuffer_width, 
+        mbi->framebuffer_addr,
+        mbi->framebuffer_width,
         mbi->framebuffer_height
     );
 
@@ -331,10 +379,58 @@ int main(unsigned long addr)
     draw_counter(0, 0, white);
 
     // Initialize serial ports
-    init_serial(0x3f8);
+    init_serial(serial_port);
 
     while (1) {
+        if(is_connected == 0){
+            char msg = serial_received(serial_port);
 
+            if(msg != 0){
+              msg = inb(serial_port);
+            }
+
+            if(msg == 0 && is_server == 0){
+                is_server = 1;
+                write_serial(serial_port, 's');
+            } else if(msg == 's') {
+                is_connected = 1;
+                is_server = 0;
+                write_serial(serial_port, 'c');
+            } else if (msg == 'c'){
+                is_connected = 1;
+                is_server = 1;
+            }
+        }
+        if(is_connected == 1){
+
+            char msg = serial_received(serial_port);
+
+             if(msg == 0){
+              continue;
+             }
+
+             char key_code = inb(serial_port);
+
+              // Player 1 up and down
+              if(is_server == 0){
+                if (key_code == 31 && (player1_y + lateral_bar_height) <= max_screen_height) {
+                    move_player1(20);
+                }
+                if (key_code == 17 && player1_y >= 1) {
+                    move_player1(-20);
+                }
+              }
+
+              // Player 2 up and down
+              if(is_server == 1){
+                if (key_code == 31 && (player2_y + lateral_bar_height) <= max_screen_height) {
+                    move_player2(20);
+                }
+                if (key_code == 17 && player2_y >= 1) {
+                    move_player2(-20);
+                }
+              }
+        }
     }
 
     return 0;
